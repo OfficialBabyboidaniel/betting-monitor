@@ -117,6 +117,7 @@ class NotificationService:
         return success
 
 def main():
+def main():
     print("🎯 Starting Rebel Betting Monitor...")
     notifier = NotificationService()
     driver = None
@@ -446,8 +447,20 @@ def main():
             print("🔄 Refreshing page...")
             driver.refresh()
             
+    except KeyboardInterrupt:
+        print("\n🛑 Received interrupt signal, shutting down...")
     except Exception as e:
-        pass
+        print(f"❌ Fatal error: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if driver:
+            print("🧹 Cleaning up Chrome driver...")
+            try:
+                driver.quit()
+            except:
+                pass
+        print("👋 Goodbye!")
     
 if __name__ == '__main__':
     main()
