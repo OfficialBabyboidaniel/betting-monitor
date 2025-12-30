@@ -116,7 +116,42 @@ class NotificationService:
         success |= self.send_email(title, message)
         return success
 
-def main():
+def start_driver():
+    """Initialize and return Chrome driver"""
+    print("🚀 Starting Chrome driver...")
+    options = uc.ChromeOptions()
+    # Force headless mode in Docker
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--start-maximized")
+    options.add_argument("--no-first-run")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    
+    # Allow popups
+    options.add_argument("--disable-popup-blocking")
+    options.add_experimental_option("prefs", {
+        "profile.default_content_setting_values.popups": 1
+    })
+    
+    try:
+        print("⏳ Initializing Chrome (this may take 30-60 seconds)...")
+        driver = uc.Chrome(options=options)
+        print("✅ Chrome driver initialized successfully")
+        
+        driver.implicitly_wait(IMPLICIT_WAIT)
+        
+        print(f"🌐 Navigating to login page: {LOGIN_URL}")
+        driver.get(LOGIN_URL)
+        print("✅ Page loaded successfully!")
+        return driver
+    except Exception as e:
+        print(f"❌ Failed to start Chrome driver: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
 def main():
     print("🎯 Starting Rebel Betting Monitor...")
     notifier = NotificationService()
