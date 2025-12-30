@@ -229,116 +229,91 @@ def debug_page_content(driver):
         print(f"🔍 Debug error: {e}")
 
 def automated_login(driver, username, password):
-    print(f"Starting automated login for user: {username}")
+    """Attempt automated login with legacy method + debug logs"""
+    print(f"🔑 Starting automated login for user: {username}")
     driver.get(LOGIN_URL)
     try:
+        print("⏳ Waiting for page to load completely...")
         WebDriverWait(driver, 20).until(lambda d: d.execute_script('return document.readyState') == 'complete')
-        print("✓ Page loaded completely")
-        time.sleep(random.uniform(2, 3))  # Give more time for page to fully load
+        print("✅ Page loaded. Waiting extra seconds for scripts...")
+        print(f"📍 Current URL: {driver.current_url}")
+        print(f"📄 Page title: {driver.title}")
+        time.sleep(random.uniform(0.3, 0.6))
         
-        print(f"Current URL: {driver.current_url}")
-        print(f"Page title: {driver.title}")
+        print("🔍 Looking for email input field...")
+        user_input = driver.find_element(By.ID, "inputEmail")
+        print("✅ Found email input field")
         
-        # Check for any existing error messages
-        try:
-            error_msg = driver.find_element(By.CSS_SELECTOR, ".alert-danger, .error, .invalid-feedback")
-            print(f"⚠️  Found error message: {error_msg.text}")
-        except:
-            pass
+        print("🔍 Looking for password input field...")
+        pass_input = driver.find_element(By.ID, "inputPassword")
+        print("✅ Found password input field")
         
-        try:
-            user_input = driver.find_element(By.ID, "inputEmail")
-            print("✓ Found email input field")
-        except NoSuchElementException:
-            print("✗ Email input field not found")
-            return False
+        print("📝 Setting email value using JavaScript (legacy method)...")
+        # Use JavaScript to set values and trigger events (legacy working method)
+        driver.execute_script('arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event("input", {bubbles:true})); arguments[0].dispatchEvent(new Event("change", {bubbles:true}));', user_input, username)
+        print(f"✅ Email set to: {user_input.get_attribute('value')}")
+        time.sleep(random.uniform(0.3, 0.6))
         
-        try:
-            pass_input = driver.find_element(By.ID, "inputPassword")
-            print("✓ Found password input field")
-        except NoSuchElementException:
-            print("✗ Password input field not found")
-            return False
+        print("🔐 Setting password value using JavaScript (legacy method)...")
+        driver.execute_script('arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event("input", {bubbles:true})); arguments[0].dispatchEvent(new Event("change", {bubbles:true}));', pass_input, password)
+        print(f"✅ Password field filled (length: {len(pass_input.get_attribute('value'))})")
+        time.sleep(random.uniform(0.3, 0.6))
         
-        print("Clearing and filling in credentials...")
-        # Clear fields first
-        user_input.clear()
-        pass_input.clear()
-        time.sleep(0.5)
-        
-        # Fill email field
-        user_input.send_keys(username)
-        time.sleep(random.uniform(0.5, 1.0))
-        
-        # Fill password field  
-        pass_input.send_keys(password)
-        time.sleep(random.uniform(0.5, 1.0))
-        
-        # Trigger validation by clicking outside or pressing tab
-        pass_input.send_keys(Keys.TAB)
-        time.sleep(1)
-        
+        print("🔍 Looking for submit button...")
         try:
             submit = driver.find_element(By.CSS_SELECTOR, "button[type=submit], button.btn-primary")
-            print(f"✓ Found submit button: '{submit.text}' - Enabled: {not submit.get_attribute('disabled')}")
+            print(f"✅ Found submit button: '{submit.text}'")
+            print(f"🔍 Button enabled: {not submit.get_attribute('disabled')}")
+            print(f"🔍 Button classes: {submit.get_attribute('class')}")
             
-            # Wait a bit more if still disabled
-            if submit.get_attribute("disabled"):
-                print("⚠️  Submit button still disabled, waiting and trying to trigger validation...")
-                pass_input.send_keys(Keys.TAB)
-                time.sleep(2)
-                
-                # Check again
-                if submit.get_attribute("disabled"):
-                    print("⚠️  Button still disabled, trying to submit anyway...")
-            
-            try:
-                driver.execute_script("arguments[0].scrollIntoView(true);", submit)
-                time.sleep(0.5)
-                submit.click()
-                print("✓ Clicked submit button")
-            except Exception as click_error:
-                print(f"Regular click failed: {click_error}")
-                driver.execute_script("arguments[0].click();", submit)
-                print("✓ JavaScript click successful")
-                
+            print("🖱️ Clicking submit button...")
+            submit.click()
+            print("✅ Submit button clicked successfully")
         except NoSuchElementException:
-            print("✗ Submit button not found")
+            print("❌ Submit button not found - trying alternative approach")
             # Try pressing Enter on password field
             try:
+                print("⌨️ Pressing Enter on password field...")
                 pass_input.send_keys(Keys.RETURN)
-                print("✓ Pressed Enter on password field")
-            except:
-                return False
-        
-        # Wait for navigation or error
-        print("⏳ Waiting for login response...")
-        time.sleep(random.uniform(3, 5))
-        
-        current_url = driver.current_url
-        print(f"URL after login attempt: {current_url}")
-        
-        # Check if we're still on login page (failed) or redirected (success)
-        if "login" in current_url.lower():
-            print("✗ Still on login page - checking for error messages...")
+                print("✅ Enter key pressed")
+            except Exception as e:
+                print(f"❌ Enter key failed: {e}")
             
-            # Look for specific error messages
+        print("⏳ Waiting for login response...")
+        time.sleep(random.uniform(0.3, 0.6))
+        
+        # Check URL after login attempt
+        new_url = driver.current_url
+        print(f"📍 URL after login: {new_url}")
+        
+        if "login" in new_url.lower():
+            print("❌ Still on login page - login may have failed")
+            
+            # Check for error messages
             try:
                 error_elements = driver.find_elements(By.CSS_SELECTOR, ".alert, .error, .invalid-feedback, .text-danger")
-                for error in error_elements:
-                    if error.text.strip():
-                        print(f"❌ Error message: {error.text}")
-            except:
-                pass
+                if error_elements:
+                    for error in error_elements:
+                        if error.text.strip():
+                            print(f"🚨 Error message found: {error.text}")
+                else:
+                    print("🔍 No error messages found on page")
+            except Exception as e:
+                print(f"🔍 Error checking failed: {e}")
             
-            print("❌ Login failed - credentials may be incorrect or site has changed")
             return False
         else:
-            print("✓ Redirected from login page - login likely successful")
+            print("✅ Redirected from login page - login appears successful!")
             return True
-            
+        
+    except TimeoutException:
+        print("⏰ Timed out waiting for login form — the automated login may not work.")
+        return False
+    except NoSuchElementException as e:
+        print(f"❌ Could not find required element: {e}")
+        return False
     except Exception as e:
-        print(f"✗ Login error: {e}")
+        print(f"❌ Login error: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -375,10 +350,8 @@ def main():
         while True:  
             loop_count += 1
             print(f"\n--- 🔍 Loop #{loop_count} ---")
+            print(f"📍 Current URL: {driver.current_url}")
             sys.stdout.flush()
-            
-            # Add debug info
-            debug_page_content(driver)
             
             WebDriverWait(driver, 20).until(lambda d: d.execute_script('return document.readyState') == 'complete')
             time.sleep(random.uniform(0.3, 0.6))
