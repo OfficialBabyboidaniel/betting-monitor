@@ -202,16 +202,49 @@ def start_driver():
             print(f"❌ Fallback also failed: {fallback_error}")
             raise e
 
+def debug_page_content(driver):
+    """Debug function to understand page content"""
+    try:
+        print(f"🔍 Debug - Current URL: {driver.current_url}")
+        print(f"🔍 Debug - Page title: {driver.title}")
+        
+        # Check for common elements
+        common_selectors = [
+            "h1", "h2", ".card", ".content", ".main", 
+            "[class*='bet']", "[class*='odds']", ".alert", ".error"
+        ]
+        
+        for selector in common_selectors:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                if elements:
+                    print(f"🔍 Found {len(elements)} elements with selector '{selector}'")
+                    if elements[0].text.strip():
+                        preview = elements[0].text.strip()[:50]
+                        print(f"   First element text: {preview}...")
+            except:
+                pass
+                
+    except Exception as e:
+        print(f"🔍 Debug error: {e}")
+
 def automated_login(driver, username, password):
     print(f"Starting automated login for user: {username}")
     driver.get(LOGIN_URL)
     try:
         WebDriverWait(driver, 20).until(lambda d: d.execute_script('return document.readyState') == 'complete')
         print("✓ Page loaded completely")
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(2, 3))  # Give more time for page to fully load
         
         print(f"Current URL: {driver.current_url}")
         print(f"Page title: {driver.title}")
+        
+        # Check for any existing error messages
+        try:
+            error_msg = driver.find_element(By.CSS_SELECTOR, ".alert-danger, .error, .invalid-feedback")
+            print(f"⚠️  Found error message: {error_msg.text}")
+        except:
+            pass
         
         try:
             user_input = driver.find_element(By.ID, "inputEmail")
@@ -227,26 +260,41 @@ def automated_login(driver, username, password):
             print("✗ Password input field not found")
             return False
         
-        print("Filling in credentials...")
-        driver.execute_script('arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event("input", {bubbles:true}));', user_input, username)
-        time.sleep(random.uniform(0.3, 0.6))
-        driver.execute_script('arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event("input", {bubbles:true}));', pass_input, password)
-        time.sleep(random.uniform(0.3, 0.6))
+        print("Clearing and filling in credentials...")
+        # Clear fields first
+        user_input.clear()
+        pass_input.clear()
+        time.sleep(0.5)
+        
+        # Fill email field
+        user_input.send_keys(username)
+        time.sleep(random.uniform(0.5, 1.0))
+        
+        # Fill password field  
+        pass_input.send_keys(password)
+        time.sleep(random.uniform(0.5, 1.0))
+        
+        # Trigger validation by clicking outside or pressing tab
+        pass_input.send_keys(Keys.TAB)
+        time.sleep(1)
         
         try:
             submit = driver.find_element(By.CSS_SELECTOR, "button[type=submit], button.btn-primary")
-            print(f"✓ Found submit button: {submit.text}")
+            print(f"✓ Found submit button: '{submit.text}' - Enabled: {not submit.get_attribute('disabled')}")
             
+            # Wait a bit more if still disabled
             if submit.get_attribute("disabled"):
-                print("⚠️  Submit button is disabled, waiting...")
+                print("⚠️  Submit button still disabled, waiting and trying to trigger validation...")
+                pass_input.send_keys(Keys.TAB)
                 time.sleep(2)
-                try:
-                    pass_input.send_keys(Keys.TAB)
-                    time.sleep(1)
-                except:
-                    pass
+                
+                # Check again
+                if submit.get_attribute("disabled"):
+                    print("⚠️  Button still disabled, trying to submit anyway...")
             
             try:
+                driver.execute_script("arguments[0].scrollIntoView(true);", submit)
+                time.sleep(0.5)
                 submit.click()
                 print("✓ Clicked submit button")
             except Exception as click_error:
@@ -256,28 +304,43 @@ def automated_login(driver, username, password):
                 
         except NoSuchElementException:
             print("✗ Submit button not found")
+            # Try pressing Enter on password field
+            try:
+                pass_input.send_keys(Keys.RETURN)
+                print("✓ Pressed Enter on password field")
+            except:
+                return False
+        
+        # Wait for navigation or error
+        print("⏳ Waiting for login response...")
+        time.sleep(random.uniform(3, 5))
+        
+        current_url = driver.current_url
+        print(f"URL after login attempt: {current_url}")
+        
+        # Check if we're still on login page (failed) or redirected (success)
+        if "login" in current_url.lower():
+            print("✗ Still on login page - checking for error messages...")
+            
+            # Look for specific error messages
+            try:
+                error_elements = driver.find_elements(By.CSS_SELECTOR, ".alert, .error, .invalid-feedback, .text-danger")
+                for error in error_elements:
+                    if error.text.strip():
+                        print(f"❌ Error message: {error.text}")
+            except:
+                pass
+            
+            print("❌ Login failed - credentials may be incorrect or site has changed")
             return False
-        
-        time.sleep(random.uniform(2, 4))
-        
-        print(f"URL after login attempt: {driver.current_url}")
-        
-        try:
-            WebDriverWait(driver, 10).until(
-                EC.any_of(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, ".odds-card")),
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='dashboard']")),
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='bet']"))
-                )
-            )
-            print("✓ Login appears successful")
+        else:
+            print("✓ Redirected from login page - login likely successful")
             return True
-        except TimeoutException:
-            print("✗ Login may have failed")
-            return False
             
     except Exception as e:
         print(f"✗ Login error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def main():
@@ -314,6 +377,9 @@ def main():
             print(f"\n--- 🔍 Loop #{loop_count} ---")
             sys.stdout.flush()
             
+            # Add debug info
+            debug_page_content(driver)
+            
             WebDriverWait(driver, 20).until(lambda d: d.execute_script('return document.readyState') == 'complete')
             time.sleep(random.uniform(0.3, 0.6))
             
@@ -327,18 +393,72 @@ def main():
                 pass
             
             try:
-                odds_card = driver.find_element(By.CSS_SELECTOR, ".odds-card")
+                # Try multiple selectors for the betting content
+                odds_card = None
+                selectors_to_try = [
+                    ".odds-card",
+                    ".value-bet",
+                    ".betting-card", 
+                    "[class*='bet']",
+                    "[class*='odds']",
+                    ".card",
+                    ".content"
+                ]
                 
-                if "No value bets" in odds_card.text:
-                    print("ℹ️  No value bets available")
+                for selector in selectors_to_try:
+                    try:
+                        odds_card = driver.find_element(By.CSS_SELECTOR, selector)
+                        print(f"✓ Found content with selector: {selector}")
+                        break
+                    except:
+                        continue
+                
+                if odds_card:
+                    card_text = odds_card.text.lower()
+                    print(f"📄 Content preview: {card_text[:100]}...")
+                    
+                    if "no value bets" in card_text or "no bets" in card_text:
+                        print("ℹ️  No value bets available")
+                    elif "value bet" in card_text or "bet" in card_text:
+                        print("🎯 Potential value bets found!")
+                        bet_elements = driver.find_elements(By.CSS_SELECTOR, ".bet-row, .value-bet, [class*='bet']")
+                        bet_count = len(bet_elements)
+                        message = f"🎯 {bet_count} potential value bets detected!\n\nCheck: {driver.current_url}"
+                        print(f"📱 Sending notification for {bet_count} bets...")
+                        notifier.notify("Value Bets Available!", message)
+                    else:
+                        print("ℹ️  Content found but no clear bet indicators")
                 else:
-                    print("🎯 Value bets found!")
-                    bet_count = len(driver.find_elements(By.CSS_SELECTOR, ".bet-row, .value-bet"))
-                    message = f"🎯 {bet_count} value bets detected!\n\nCheck: {LOGIN_URL}"
-                    print(f"📱 Sending notification for {bet_count} bets...")
-                    notifier.notify("Value Bets Available!", message)
+                    # Check if we're on login page
+                    current_url = driver.current_url
+                    if "login" in current_url.lower():
+                        print("⚠️  Back on login page - session may have expired")
+                        if username and password:
+                            print("🔄 Attempting to re-login...")
+                            login_success = automated_login(driver, username, password)
+                            if login_success:
+                                continue  # Skip this loop iteration and try again
+                    else:
+                        print(f"⚠️  No recognizable content found on page: {current_url}")
+                        # Try to navigate to the main betting page
+                        try:
+                            main_page = "https://vb.rebelbetting.com/"
+                            print(f"🔄 Navigating to main page: {main_page}")
+                            driver.get(main_page)
+                            time.sleep(3)
+                        except:
+                            pass
+                            
             except Exception as e:
-                print(f"⚠️  Could not find odds card: {e}")
+                print(f"⚠️  Error during monitoring: {e}")
+                # Check if we need to re-login
+                try:
+                    if "login" in driver.current_url.lower():
+                        print("🔄 Detected login page, attempting re-login...")
+                        if username and password:
+                            automated_login(driver, username, password)
+                except:
+                    pass
             
             print("💤 Waiting 60 seconds...")
             sys.stdout.flush()
