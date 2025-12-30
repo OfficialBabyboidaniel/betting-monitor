@@ -195,14 +195,35 @@ def main():
             try:
                 submit = driver.find_element(By.CSS_SELECTOR, "button[type=submit], button.btn-primary")
                 print(f"✓ Found submit button: {submit.text}")
-                submit.click()
-                print("✓ Clicked submit button")
+                
+                # Check if button is disabled
+                if submit.get_attribute("disabled"):
+                    print("⚠️  Submit button is disabled, waiting for it to be enabled...")
+                    # Wait a bit longer for form validation
+                    time.sleep(2)
+                    # Try to trigger form validation by clicking on the form or pressing tab
+                    try:
+                        pass_input.send_keys(Keys.TAB)
+                        time.sleep(1)
+                    except:
+                        pass
+                
+                # Try JavaScript click if regular click fails
+                try:
+                    submit.click()
+                    print("✓ Clicked submit button")
+                except Exception as click_error:
+                    print(f"Regular click failed: {click_error}")
+                    print("Trying JavaScript click...")
+                    driver.execute_script("arguments[0].click();", submit)
+                    print("✓ JavaScript click successful")
+                    
             except NoSuchElementException:
                 print("✗ Submit button not found")
                 buttons = driver.find_elements(By.TAG_NAME, "button")
                 print("Available buttons:")
                 for i, btn in enumerate(buttons):
-                    print(f"  Button {i}: text='{btn.text}', type='{btn.get_attribute('type')}', class='{btn.get_attribute('class')}'")
+                    print(f"  Button {i}: text='{btn.text}', type='{btn.get_attribute('type')}', class='{btn.get_attribute('class')}', disabled='{btn.get_attribute('disabled')}'")
                 return False
             
             time.sleep(random.uniform(2, 4))  # Wait for login to process
