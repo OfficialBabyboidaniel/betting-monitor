@@ -319,6 +319,7 @@ def automated_login(driver, username, password):
             print("❌ Submit button not found - trying Enter key...")
             # Try pressing Enter on password field
             try:
+                print("⌨️ Pressing Enter on password field...")
                 pass_input.send_keys(Keys.RETURN)
                 print("✅ Enter key pressed on password field")
             except Exception as e:
@@ -327,7 +328,7 @@ def automated_login(driver, username, password):
         
         # Wait for navigation or error
         print("⏳ Waiting for login response...")
-        time.sleep(random.uniform(3, 5))
+        time.sleep(random.uniform(0.3, 0.6))
         
         current_url = driver.current_url
         print(f"📍 URL after login attempt: {current_url}")
@@ -336,7 +337,7 @@ def automated_login(driver, username, password):
         if "login" in current_url.lower():
             print("❌ Still on login page - login failed")
             
-            # Look for specific error messages
+            # Check for error messages
             try:
                 error_elements = driver.find_elements(By.CSS_SELECTOR, ".alert, .error, .invalid-feedback, .text-danger")
                 if error_elements:
