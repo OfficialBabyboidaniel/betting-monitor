@@ -13,7 +13,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.keys import Keys
-from webdriver_manager.chrome import ChromeDriverManager
 from config import LOGIN_URL, HEADLESS, IMPLICIT_WAIT, STAKE_AMOUNT, ACCUMULATED_STAKE
 
 dotenv.load_dotenv()
@@ -138,9 +137,8 @@ def main():
             "profile.default_content_setting_values.popups": 1
         })
         
-        # Use webdriver-manager to get the correct ChromeDriver version
-        driver_path = ChromeDriverManager().install()
-        driver = uc.Chrome(driver_executable_path=driver_path, options=options)
+        # Don't use webdriver-manager, let undetected-chrome handle it
+        driver = uc.Chrome(options=options)
         driver.implicitly_wait(IMPLICIT_WAIT)
         
         # Navigate to login page immediately

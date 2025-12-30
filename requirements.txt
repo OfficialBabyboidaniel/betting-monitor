@@ -1,6 +1,5 @@
 selenium==4.15.2
 undetected-chromedriver==3.5.4
-webdriver-manager==4.0.1
 python-dotenv==1.0.0
 requests==2.31.0
 pushbullet.py==0.12.0
