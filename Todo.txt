@@ -1,0 +1,3 @@
+// Must connect to ubuntu server in order to run 24/7 
+// Must find a way for python to send notifications to phone... 
+// # WHAT IS THE CORRECT HTML SELECTOR FOR REBEL BETTING POPUPS?
