@@ -117,10 +117,99 @@ class NotificationService:
         return success
 
 def main():
+    print("🎯 Starting Rebel Betting Monitor...")
     notifier = NotificationService()
+    driver = None
     
-    def start_driver():
+    try:
+        driver = start_driver()
+        
+        username = os.getenv("REBEL_USERNAME")
+        password = os.getenv("REBEL_PASSWORD")
+        
+        if username and password:
+            print("🔑 REBEL_USERNAME found in env — attempting automated login (may fail).")
+            login_success = automated_login(driver, username, password)
+            if not login_success:
+                print("⚠️  Automated login failed, but continuing to monitor anyway...")
+        else:
+            print("ℹ️  REBEL_USERNAME not found in env — continuing without login.")
+
+        print("🔄 Starting betting monitor loop...")
+        
+        #check if there actually are any bet cards 
+        WebDriverWait(driver, 20).until(lambda d: d.execute_script('return document.readyState') == 'complete')
+        print("✅ Page loaded. Waiting extra seconds for scripts...")
+        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(0.5)  # Wait for potential dynamic content to load
+        
+        loop_count = 0
+        while True:  
+            loop_count += 1
+            print(f"\n--- 🔍 Monitor Loop #{loop_count} ---")
+            print(f"Current URL: {driver.current_url}")
+            
+            WebDriverWait(driver, 20).until(lambda d: d.execute_script('return document.readyState') == 'complete')
+            print("✓ Page loaded completely")
+            time.sleep(random.uniform(0.3, 0.6))
+            
+            # Close backdrop popups if present (attempt multiple selectors)
+            try:
+                # WHAT IS THE CORRECT HTML SELECTOR FOR REBEL BETTING POPUPS?
+                popup_close = WebDriverWait(driver, 3).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "svg[data-testid='CloseLargeOutlinedIcon']"))
+                )
+                popup_close.click()
+                print("✓ Closed BetMGM popup")
+                time.sleep(random.uniform(0.3, 0.6))
+            except:
+                pass
+            
+            try:
+                # Check if the odds-card contains "No value bets" message
+                odds_card = driver.find_element(By.CSS_SELECTOR, ".odds-card")
+                print(f"✓ Found odds card with text: {odds_card.text[:100]}...")
+                
+                if "No value bets" in odds_card.text:
+                    print("ℹ️  No value bets available with current filters")
+                else:
+                    print("🎯 Value bets found! Proceeding with pinging...")
+                    # Send notification when bets are found
+                    bet_count = len(driver.find_elements(By.CSS_SELECTOR, ".bet-row, .value-bet"))
+                    message = f"🎯 {bet_count} value bets detected on RebelBetting!\n\nCheck your dashboard: {LOGIN_URL}"
+                    print(f"📱 Sending notification for {bet_count} bets...")
+                    notifier.notify("Value Bets Available!", message)
+            except Exception as e:
+                print(f"⚠️  Could not find odds card: {e}")
+                # Debug: Print available elements
+                try:
+                    body_text = driver.find_element(By.TAG_NAME, "body").text[:200]
+                    print(f"Page content preview: {body_text}...")
+                except:
+                    pass
+            
+            print(f"💤 Waiting 60 seconds before next check...")
+            time.sleep(60)
+            # Refresh the page to check for new bets
+            print("🔄 Refreshing page...")
+            driver.refresh()
+            
+    except KeyboardInterrupt:
+        print("\n🛑 Received interrupt signal, shutting down...")
+    except Exception as e:
+        print(f"❌ Fatal error: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if driver:
+            print("🧹 Cleaning up Chrome driver...")
+            try:
+                driver.quit()
+            except:
+                pass
+        print("👋 Goodbye!")
         """Initialize and return Chrome driver"""
+        print("🚀 Starting Chrome driver...")
         options = uc.ChromeOptions()
         # Force headless mode in Docker
         options.add_argument("--headless=new")
@@ -137,15 +226,24 @@ def main():
             "profile.default_content_setting_values.popups": 1
         })
         
-        # Don't use webdriver-manager, let undetected-chrome handle it
-        driver = uc.Chrome(options=options)
-        driver.implicitly_wait(IMPLICIT_WAIT)
-        
-        # Navigate to login page immediately
-        print(f"Navigating to login page: {LOGIN_URL}")
-        driver.get(LOGIN_URL)
-        print("Page loaded successfully!")
-        return driver
+        try:
+            print("⏳ Initializing Chrome (this may take 30-60 seconds)...")
+            # Don't use webdriver-manager, let undetected-chrome handle it
+            driver = uc.Chrome(options=options)
+            print("✅ Chrome driver initialized successfully")
+            
+            driver.implicitly_wait(IMPLICIT_WAIT)
+            
+            # Navigate to login page immediately
+            print(f"🌐 Navigating to login page: {LOGIN_URL}")
+            driver.get(LOGIN_URL)
+            print("✅ Page loaded successfully!")
+            return driver
+        except Exception as e:
+            print(f"❌ Failed to start Chrome driver: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
     def automated_login(driver, username, password):
         """Attempt automated login with detailed debugging"""
         print(f"Starting automated login for user: {username}")
