@@ -32,5 +32,8 @@ USER appuser
 # Set display for headless Chrome
 ENV DISPLAY=:99
 
+# Force Python to flush output immediately (fix log buffering)
+ENV PYTHONUNBUFFERED=1
+
 # Run the application
-CMD ["python", "main.py"]
+CMD ["python", "-u", "main.py"]

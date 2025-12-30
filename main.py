@@ -1,6 +1,8 @@
 import time
 import os
 import random
+import signal
+import sys
 import dotenv
 import undetected_chromedriver as uc
 import requests
@@ -113,23 +115,58 @@ class NotificationService:
 
 def start_driver():
     print("🚀 Starting Chrome driver...")
+    print("🔧 Setting up Chrome options...")
+    
     options = uc.ChromeOptions()
+    
+    # Essential Docker Chrome arguments
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--start-maximized")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--disable-background-timer-throttling")
+    options.add_argument("--disable-backgrounding-occluded-windows")
+    options.add_argument("--disable-renderer-backgrounding")
+    options.add_argument("--disable-features=TranslateUI")
+    options.add_argument("--disable-ipc-flooding-protection")
     options.add_argument("--no-first-run")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-popup-blocking")
+    options.add_argument("--remote-debugging-port=9222")
+    options.add_argument("--window-size=1920,1080")
+    
+    # Memory and performance optimizations for containers
+    options.add_argument("--memory-pressure-off")
+    options.add_argument("--max_old_space_size=4096")
+    
     options.add_experimental_option("prefs", {
         "profile.default_content_setting_values.popups": 1
     })
     
+    print("⏳ Initializing Chrome (this may take 30-60 seconds)...")
+    
     try:
-        print("⏳ Initializing Chrome (this may take 30-60 seconds)...")
-        driver = uc.Chrome(options=options)
-        print("✅ Chrome driver initialized successfully")
+        print("🔄 Creating Chrome instance...")
+        import sys
+        sys.stdout.flush()  # Force flush before potentially blocking operation
+        
+        # Add timeout mechanism
+        import signal
+        
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Chrome initialization timed out after 120 seconds")
+        
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(120)  # 2 minute timeout
+        
+        try:
+            driver = uc.Chrome(options=options)
+            signal.alarm(0)  # Cancel timeout
+            print("✅ Chrome driver initialized successfully")
+        except TimeoutError:
+            print("❌ Chrome initialization timed out - this usually indicates Chrome can't start in container")
+            raise
         
         driver.implicitly_wait(IMPLICIT_WAIT)
         
@@ -137,11 +174,33 @@ def start_driver():
         driver.get(LOGIN_URL)
         print("✅ Page loaded successfully!")
         return driver
+        
     except Exception as e:
         print(f"❌ Failed to start Chrome driver: {e}")
+        print(f"❌ Error type: {type(e).__name__}")
         import traceback
         traceback.print_exc()
-        raise
+        
+        # Try alternative approach with regular selenium
+        print("🔄 Attempting fallback to regular selenium Chrome...")
+        try:
+            from selenium import webdriver
+            from selenium.webdriver.chrome.service import Service
+            
+            service = Service()
+            fallback_options = webdriver.ChromeOptions()
+            fallback_options.add_argument("--headless=new")
+            fallback_options.add_argument("--no-sandbox")
+            fallback_options.add_argument("--disable-dev-shm-usage")
+            fallback_options.add_argument("--disable-gpu")
+            
+            fallback_driver = webdriver.Chrome(service=service, options=fallback_options)
+            print("✅ Fallback Chrome driver initialized")
+            return fallback_driver
+            
+        except Exception as fallback_error:
+            print(f"❌ Fallback also failed: {fallback_error}")
+            raise e
 
 def automated_login(driver, username, password):
     print(f"Starting automated login for user: {username}")
@@ -227,7 +286,11 @@ def main():
     driver = None
     
     try:
+        print("🔄 Attempting to start Chrome driver...")
+        sys.stdout.flush()
+        
         driver = start_driver()
+        print("✅ Chrome driver started successfully")
         
         username = os.getenv("REBEL_USERNAME")
         password = os.getenv("REBEL_PASSWORD")
@@ -249,6 +312,7 @@ def main():
         while True:  
             loop_count += 1
             print(f"\n--- 🔍 Loop #{loop_count} ---")
+            sys.stdout.flush()
             
             WebDriverWait(driver, 20).until(lambda d: d.execute_script('return document.readyState') == 'complete')
             time.sleep(random.uniform(0.3, 0.6))
@@ -277,6 +341,7 @@ def main():
                 print(f"⚠️  Could not find odds card: {e}")
             
             print("💤 Waiting 60 seconds...")
+            sys.stdout.flush()
             time.sleep(60)
             print("🔄 Refreshing...")
             driver.refresh()
@@ -285,8 +350,17 @@ def main():
         print("\n🛑 Shutting down...")
     except Exception as e:
         print(f"❌ Fatal error: {e}")
+        print(f"❌ Error type: {type(e).__name__}")
         import traceback
         traceback.print_exc()
+        
+        # Send error notification
+        try:
+            error_message = f"❌ Betting Monitor Error: {str(e)[:200]}"
+            notifier.notify("Monitor Error", error_message)
+        except:
+            pass
+            
     finally:
         if driver:
             print("🧹 Cleaning up...")
@@ -295,6 +369,11 @@ def main():
             except:
                 pass
         print("👋 Goodbye!")
+        sys.stdout.flush()
 
 if __name__ == '__main__':
+    print("🐍 Python script starting...")
+    print("📦 Imports successful")
+    print("🔧 About to call main()")
     main()
+    print("✅ Main function completed")
