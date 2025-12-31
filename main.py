@@ -19,6 +19,63 @@ from config import LOGIN_URL, HEADLESS, IMPLICIT_WAIT, STAKE_AMOUNT, ACCUMULATED
 
 dotenv.load_dotenv()
 
+def solve_math_challenge(question_text):
+    """Solve simple math challenges like '5 + 3 = ?' or 'What is 7 - 2?'"""
+    try:
+        import re
+        
+        print(f"🧮 Parsing math question: {question_text}")
+        
+        # Clean the text
+        text = question_text.lower().strip()
+        
+        # Pattern 1: "5 + 3 = ?" or "5 + 3 ="
+        pattern1 = r'(\d+)\s*([+\-*×])\s*(\d+)\s*=\s*\??'
+        match = re.search(pattern1, text)
+        
+        if match:
+            num1, operator, num2 = match.groups()
+            num1, num2 = int(num1), int(num2)
+            
+            if operator == '+':
+                result = num1 + num2
+            elif operator == '-':
+                result = num1 - num2
+            elif operator in ['*', '×']:
+                result = num1 * num2
+            else:
+                return None
+                
+            print(f"🧮 Solved: {num1} {operator} {num2} = {result}")
+            return result
+        
+        # Pattern 2: "What is 7 - 2?" or "Calculate 5 + 3"
+        pattern2 = r'(\d+)\s*([+\-*×])\s*(\d+)'
+        match = re.search(pattern2, text)
+        
+        if match:
+            num1, operator, num2 = match.groups()
+            num1, num2 = int(num1), int(num2)
+            
+            if operator == '+':
+                result = num1 + num2
+            elif operator == '-':
+                result = num1 - num2
+            elif operator in ['*', '×']:
+                result = num1 * num2
+            else:
+                return None
+                
+            print(f"🧮 Solved: {num1} {operator} {num2} = {result}")
+            return result
+        
+        print(f"❌ Could not parse math question: {question_text}")
+        return None
+        
+    except Exception as e:
+        print(f"❌ Math solving error: {e}")
+        return None
+
 class NotificationService:
     def __init__(self):
         self.pushbullet_token = os.getenv("PUSHBULLET_TOKEN")
@@ -328,16 +385,126 @@ def automated_login(driver, username, password):
         
         # Wait for navigation or error
         print("⏳ Waiting for login response...")
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(3, 5))
         
         current_url = driver.current_url
         print(f"📍 URL after login attempt: {current_url}")
+        
+        # Check for math challenge/CAPTCHA first
+        print("🔍 Checking for math challenge...")
+        try:
+            # Look for common math challenge patterns
+            math_selectors = [
+                "input[placeholder*='math']",
+                "input[placeholder*='challenge']", 
+                "input[placeholder*='captcha']",
+                "input[name*='math']",
+                "input[name*='challenge']",
+                "input[name*='captcha']",
+                ".math-challenge input",
+                ".captcha input",
+                ".challenge input",
+                "input[type='text']:not([id='inputEmail']):not([id='inputPassword'])"
+            ]
+            
+            math_input = None
+            math_question = None
+            
+            for selector in math_selectors:
+                try:
+                    math_input = driver.find_element(By.CSS_SELECTOR, selector)
+                    print(f"✅ Found potential math input with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if math_input:
+                # Look for the math question text
+                print("🔍 Looking for math question text...")
+                
+                # Try to find question in various places
+                question_selectors = [
+                    "label[for='" + (math_input.get_attribute('id') or '') + "']",
+                    ".math-challenge",
+                    ".captcha",
+                    ".challenge",
+                    "p", "div", "span"
+                ]
+                
+                for selector in question_selectors:
+                    try:
+                        question_elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                        for element in question_elements:
+                            text = element.text.strip()
+                            if text and any(op in text for op in ['+', '-', '*', '×', '=']):
+                                math_question = text
+                                print(f"✅ Found math question: {math_question}")
+                                break
+                        if math_question:
+                            break
+                    except:
+                        continue
+                
+                # If no specific question found, look around the input
+                if not math_question:
+                    try:
+                        parent = math_input.find_element(By.XPATH, "..")
+                        parent_text = parent.text.strip()
+                        if any(op in parent_text for op in ['+', '-', '*', '×', '=']):
+                            math_question = parent_text
+                            print(f"🔍 Found question in parent: {math_question}")
+                    except:
+                        pass
+                
+                if math_question:
+                    print(f"🧮 Solving math challenge: {math_question}")
+                    answer = solve_math_challenge(math_question)
+                    
+                    if answer is not None:
+                        print(f"✅ Math answer: {answer}")
+                        math_input.clear()
+                        math_input.send_keys(str(answer))
+                        time.sleep(1)
+                        
+                        # Look for submit button for the challenge
+                        try:
+                            challenge_submit = driver.find_element(By.CSS_SELECTOR, "button[type='submit'], .challenge button, .math-challenge button")
+                            challenge_submit.click()
+                            print("✅ Submitted math challenge")
+                            time.sleep(3)
+                        except:
+                            # Try pressing Enter
+                            math_input.send_keys(Keys.RETURN)
+                            print("✅ Pressed Enter on math input")
+                            time.sleep(3)
+                        
+                        # Re-check URL after math challenge
+                        current_url = driver.current_url
+                        print(f"📍 URL after math challenge: {current_url}")
+                    else:
+                        print("❌ Could not solve math challenge")
+                        return False
+                else:
+                    print("❌ Found math input but no question text")
+                    # Try to get placeholder or any hint
+                    placeholder = math_input.get_attribute('placeholder')
+                    if placeholder:
+                        print(f"🔍 Input placeholder: {placeholder}")
+            else:
+                print("ℹ️  No math challenge detected")
+                
+        except Exception as e:
+            print(f"🔍 Math challenge check error: {e}")
+        
+        # Final check - are we still on login page?
+        current_url = driver.current_url
+        print(f"📍 Final URL check: {current_url}")
         
         # Check if we're still on login page (failed) or redirected (success)
         if "login" in current_url.lower():
             print("❌ Still on login page - login failed")
             
-            # Check for error messages
+            # Look for specific error messages
             try:
                 error_elements = driver.find_elements(By.CSS_SELECTOR, ".alert, .error, .invalid-feedback, .text-danger")
                 if error_elements:
