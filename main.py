@@ -397,7 +397,6 @@ def automated_login(driver, username, password):
             if math_input:
                 # Look for the math question text
                 print("🔍 Looking for math question text...")
-                
                 # Try to find question in various places
                 question_selectors = [
                     "label[for='" + (math_input.get_attribute('id') or '') + "']",
@@ -613,42 +612,81 @@ def main():
                 pass
             
             try:
-                # Try multiple selectors for the betting content
-                odds_card = None
-                selectors_to_try = [
-                    ".odds-card",
-                    ".value-bet",
-                    ".betting-card", 
-                    "[class*='bet']",
-                    "[class*='odds']",
-                    ".card",
-                    ".content"
-                ]
+                # Look for odds cards specifically
+                odds_cards = driver.find_elements(By.CSS_SELECTOR, ".odds-card")
                 
-                for selector in selectors_to_try:
-                    try:
-                        odds_card = driver.find_element(By.CSS_SELECTOR, selector)
-                        print(f"✓ Found content with selector: {selector}")
-                        break
-                    except:
-                        continue
-                
-                if odds_card:
-                    card_text = odds_card.text.lower()
-                    print(f"📄 Content preview: {card_text[:100]}...")
+                if odds_cards:
+                    print(f"✅ Found {len(odds_cards)} odds card(s)")
+                    
+                    # Check if there are actual bets or just "no bets" message
+                    first_card = odds_cards[0]
+                    card_text = first_card.text.lower()
                     
                     if "no value bets" in card_text or "no bets" in card_text:
                         print("ℹ️  No value bets available")
-                    elif "value bet" in card_text or "bet" in card_text:
-                        print("🎯 Potential value bets found!")
-                        bet_elements = driver.find_elements(By.CSS_SELECTOR, ".bet-row, .value-bet, [class*='bet']")
-                        bet_count = len(bet_elements)
-                        message = f"🎯 {bet_count} potential value bets detected!\n\nCheck: {driver.current_url}"
-                        print(f"📱 Sending notification for {bet_count} bets...")
-                        notifier.notify("Value Bets Available!", message)
                     else:
-                        print("ℹ️  Content found but no clear bet indicators")
+                        print("🎯 Value bets found!")
+                        
+                        # Extract details from up to 10 bet cards
+                        bet_details = []
+                        cards_to_process = min(len(odds_cards), 10)
+                        
+                        for i, card in enumerate(odds_cards[:cards_to_process]):
+                            try:
+                                # Extract value percentage
+                                value_element = card.find_element(By.CSS_SELECTOR, ".text-valuebet")
+                                value_percent = value_element.text.strip()
+                                
+                                # Extract bet description (match info)
+                                bet_desc_element = card.find_element(By.CSS_SELECTOR, ".odds-card-text span")
+                                bet_description = bet_desc_element.text.strip()
+                                
+                                # Extract league/sport
+                                league_elements = card.find_elements(By.CSS_SELECTOR, ".text-muted div")
+                                league = league_elements[0].text.strip() if league_elements else "Unknown"
+                                
+                                # Extract bookmaker and time
+                                time_book_elements = card.find_elements(By.CSS_SELECTOR, ".text-muted span")
+                                time_left = ""
+                                bookmaker = ""
+                                if len(time_book_elements) >= 2:
+                                    time_left = time_book_elements[0].text.strip()
+                                    bookmaker = time_book_elements[1].text.strip()
+                                
+                                bet_info = {
+                                    'value': value_percent,
+                                    'description': bet_description,
+                                    'league': league,
+                                    'time_left': time_left,
+                                    'bookmaker': bookmaker
+                                }
+                                
+                                bet_details.append(bet_info)
+                                print(f"📊 Bet {i+1}: {value_percent} - {bet_description} ({bookmaker})")
+                                
+                            except Exception as e:
+                                print(f"⚠️  Could not extract details from bet card {i+1}: {e}")
+                        
+                        if bet_details:
+                            # Create detailed notification message
+                            message_lines = [f"🎯 {len(bet_details)} Value Bets Found!", ""]
+                            
+                            for i, bet in enumerate(bet_details, 1):
+                                message_lines.append(f"{i}. {bet['value']} Value")
+                                message_lines.append(f"   {bet['description']}")
+                                message_lines.append(f"   {bet['league']} | {bet['bookmaker']} | {bet['time_left']}")
+                                message_lines.append("")  # Empty line between bets
+                            
+                            message_lines.append(f"Check: {driver.current_url}")
+                            
+                            detailed_message = "\n".join(message_lines)
+                            
+                            print(f"📱 Sending detailed notification for {len(bet_details)} bets...")
+                            notifier.notify("Value Bets Available!", detailed_message)
+                        else:
+                            print("⚠️  Found cards but could not extract bet details")
                 else:
+                    print("❌ No odds cards found")
                     # Check if we're on login page
                     current_url = driver.current_url
                     if "login" in current_url.lower():
@@ -659,15 +697,7 @@ def main():
                             if login_success:
                                 continue  # Skip this loop iteration and try again
                     else:
-                        print(f"⚠️  No recognizable content found on page: {current_url}")
-                        # Try to navigate to the main betting page
-                        try:
-                            main_page = "https://vb.rebelbetting.com/"
-                            print(f"🔄 Navigating to main page: {main_page}")
-                            driver.get(main_page)
-                            time.sleep(3)
-                        except:
-                            pass
+                        print(f"⚠️  No odds cards found on page: {current_url}")
                             
             except Exception as e:
                 print(f"⚠️  Error during monitoring: {e}")
