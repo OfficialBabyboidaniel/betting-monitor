@@ -36,4 +36,4 @@ ENV DISPLAY=:99
 ENV PYTHONUNBUFFERED=1
 
 # Start virtual display and run the application
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 & python -u main.py"]
+CMD ["sh", "-c", "mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix && Xvfb :99 -screen 0 1920x1080x24 & sleep 2 && python -u main.py"]
