@@ -514,15 +514,37 @@ def automated_login(driver, username, password):
                         # Check if there's another submit button to click after math challenge
                         try:
                             time.sleep(random.uniform(1, 2))  # Small delay before checking
-                            main_submit = driver.find_element(By.CSS_SELECTOR, "button[type='submit']:not(.math-challenge button)")
-                            if main_submit.is_displayed():
-                                print("🔍 Found main submit button after math challenge")
+                            
+                            # Look for the main login button again
+                            main_submit = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+                            if main_submit.is_displayed() and main_submit.is_enabled():
+                                print("🔍 Found main login button after math challenge")
                                 time.sleep(random.uniform(0.5, 1.5))  # Random delay before clicking
-                                main_submit.click()
-                                print("✅ Clicked main submit button")
+                                
+                                # Try clicking the main login button again
+                                try:
+                                    main_submit.click()
+                                    print("✅ Clicked main login button")
+                                except:
+                                    # Use JavaScript if regular click fails
+                                    driver.execute_script("arguments[0].click();", main_submit)
+                                    print("✅ JavaScript clicked main login button")
+                                
                                 time.sleep(random.uniform(3, 5))  # Random wait after final submit
-                        except:
-                            print("ℹ️  No additional submit button found")
+                            else:
+                                print("ℹ️  Main login button not available")
+                        except Exception as e:
+                            print(f"ℹ️  No main login button found: {e}")
+                            
+                            # Alternative: try to submit the entire form
+                            try:
+                                print("🔄 Trying to submit the entire login form...")
+                                form = driver.find_element(By.TAG_NAME, "form")
+                                driver.execute_script("arguments[0].submit();", form)
+                                print("✅ Form submitted via JavaScript")
+                                time.sleep(random.uniform(3, 5))
+                            except Exception as form_error:
+                                print(f"❌ Form submit failed: {form_error}")
                         
                         # Re-check URL after math challenge
                         current_url = driver.current_url
