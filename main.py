@@ -723,9 +723,9 @@ def main():
                 except:
                     pass
             
-            print("💤 Waiting 5 minutes...")
+            print("💤 Waiting 10 minutes...")
             sys.stdout.flush()
-            time.sleep(300)  # 5 minutes = 300 seconds
+            time.sleep(600)  # 10 minutes = 600 seconds
             print("🔄 Refreshing...")
             driver.refresh()
             
