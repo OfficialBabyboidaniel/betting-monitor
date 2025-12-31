@@ -330,18 +330,18 @@ def automated_login(driver, username, password):
         # Fill email field using send_keys (triggers validation)
         user_input.send_keys(username)
         print(f"✅ Email set to: {user_input.get_attribute('value')}")
-        time.sleep(random.uniform(0.5, 1.0))
+        time.sleep(random.uniform(1.0, 2.5))  # Random human-like delay
         
         print("🔐 Filling password field...")
         # Fill password field using send_keys (triggers validation)
         pass_input.send_keys(password)
         print(f"✅ Password field filled (length: {len(pass_input.get_attribute('value'))})")
-        time.sleep(random.uniform(0.5, 1.0))
+        time.sleep(random.uniform(1.0, 2.0))  # Random human-like delay
         
         print("⌨️ Triggering validation with Tab key...")
         # Trigger validation by pressing tab
         pass_input.send_keys(Keys.TAB)
-        time.sleep(1)
+        time.sleep(random.uniform(1.5, 3.0))  # Random wait for validation
         
         print("🔍 Looking for submit button...")
         try:
@@ -385,7 +385,7 @@ def automated_login(driver, username, password):
         
         # Wait for navigation or error
         print("⏳ Waiting for login response...")
-        time.sleep(random.uniform(3, 5))
+        time.sleep(random.uniform(4, 7))  # Longer random wait for login processing
         
         current_url = driver.current_url
         print(f"📍 URL after login attempt: {current_url}")
@@ -488,28 +488,41 @@ def automated_login(driver, username, password):
                                     print("❌ All input methods failed")
                                     return False
                         
-                        time.sleep(1)
+                        time.sleep(random.uniform(0.8, 1.5))  # Random delay after input
                         
                         # Look for submit button for the challenge
                         try:
                             challenge_submit = driver.find_element(By.CSS_SELECTOR, "button[type='submit'], .challenge button, .math-challenge button")
                             challenge_submit.click()
                             print("✅ Submitted math challenge")
-                            time.sleep(3)
+                            time.sleep(random.uniform(5, 8))  # Random wait for processing
                         except:
                             # Try pressing Enter
                             try:
                                 math_input.send_keys(Keys.RETURN)
                                 print("✅ Pressed Enter on math input")
-                                time.sleep(3)
+                                time.sleep(random.uniform(5, 8))  # Random wait for processing
                             except:
                                 # Try JavaScript submit
                                 try:
                                     driver.execute_script("arguments[0].form.submit();", math_input)
                                     print("✅ JavaScript form submit")
-                                    time.sleep(3)
+                                    time.sleep(random.uniform(5, 8))  # Random wait for processing
                                 except:
                                     print("⚠️  Could not submit math challenge")
+                        
+                        # Check if there's another submit button to click after math challenge
+                        try:
+                            time.sleep(random.uniform(1, 2))  # Small delay before checking
+                            main_submit = driver.find_element(By.CSS_SELECTOR, "button[type='submit']:not(.math-challenge button)")
+                            if main_submit.is_displayed():
+                                print("🔍 Found main submit button after math challenge")
+                                time.sleep(random.uniform(0.5, 1.5))  # Random delay before clicking
+                                main_submit.click()
+                                print("✅ Clicked main submit button")
+                                time.sleep(random.uniform(3, 5))  # Random wait after final submit
+                        except:
+                            print("ℹ️  No additional submit button found")
                         
                         # Re-check URL after math challenge
                         current_url = driver.current_url
@@ -681,9 +694,9 @@ def main():
                 except:
                     pass
             
-            print("💤 Waiting 60 seconds...")
+            print("💤 Waiting 20 minutes...")
             sys.stdout.flush()
-            time.sleep(60)
+            time.sleep(1200)  # 20 minutes = 1200 seconds
             print("🔄 Refreshing...")
             driver.refresh()
             
