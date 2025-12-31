@@ -462,8 +462,32 @@ def automated_login(driver, username, password):
                     
                     if answer is not None:
                         print(f"✅ Math answer: {answer}")
-                        math_input.clear()
-                        math_input.send_keys(str(answer))
+                        
+                        # Try multiple ways to input the answer
+                        try:
+                            # Method 1: Clear and send keys
+                            math_input.clear()
+                            math_input.send_keys(str(answer))
+                            print("✅ Method 1: send_keys successful")
+                        except Exception as e1:
+                            print(f"❌ Method 1 failed: {e1}")
+                            try:
+                                # Method 2: JavaScript input
+                                driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles:true})); arguments[0].dispatchEvent(new Event('change', {bubbles:true}));", math_input, str(answer))
+                                print("✅ Method 2: JavaScript input successful")
+                            except Exception as e2:
+                                print(f"❌ Method 2 failed: {e2}")
+                                try:
+                                    # Method 3: Focus and type
+                                    driver.execute_script("arguments[0].focus();", math_input)
+                                    time.sleep(0.5)
+                                    math_input.send_keys(str(answer))
+                                    print("✅ Method 3: Focus and type successful")
+                                except Exception as e3:
+                                    print(f"❌ Method 3 failed: {e3}")
+                                    print("❌ All input methods failed")
+                                    return False
+                        
                         time.sleep(1)
                         
                         # Look for submit button for the challenge
@@ -474,9 +498,18 @@ def automated_login(driver, username, password):
                             time.sleep(3)
                         except:
                             # Try pressing Enter
-                            math_input.send_keys(Keys.RETURN)
-                            print("✅ Pressed Enter on math input")
-                            time.sleep(3)
+                            try:
+                                math_input.send_keys(Keys.RETURN)
+                                print("✅ Pressed Enter on math input")
+                                time.sleep(3)
+                            except:
+                                # Try JavaScript submit
+                                try:
+                                    driver.execute_script("arguments[0].form.submit();", math_input)
+                                    print("✅ JavaScript form submit")
+                                    time.sleep(3)
+                                except:
+                                    print("⚠️  Could not submit math challenge")
                         
                         # Re-check URL after math challenge
                         current_url = driver.current_url
