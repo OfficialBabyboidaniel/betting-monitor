@@ -668,16 +668,29 @@ def main():
                                 print(f"⚠️  Could not extract details from bet card {i+1}: {e}")
                         
                         if bet_details:
-                            # Create detailed notification message
-                            message_lines = [f"🎯 {len(bet_details)} Value Bets Found!", ""]
+                            # Create detailed notification message with shorter lines for Telegram
+                            message_lines = [f"🎯 {len(bet_details)} Value Bets Found!"]
+                            message_lines.append("")  # Empty line
                             
                             for i, bet in enumerate(bet_details, 1):
-                                message_lines.append(f"{i}. {bet['value']} Value")
-                                message_lines.append(f"   {bet['description']}")
-                                message_lines.append(f"   {bet['league']} | {bet['bookmaker']} | {bet['time_left']}")
+                                # Truncate long descriptions to prevent wrapping
+                                description = bet['description']
+                                if len(description) > 35:
+                                    description = description[:32] + "..."
+                                
+                                # Truncate bookmaker if too long
+                                bookmaker = bet['bookmaker']
+                                if len(bookmaker) > 12:
+                                    bookmaker = bookmaker[:9] + "..."
+                                
+                                # Use shorter formatting
+                                message_lines.append(f"{i}. {bet['value']}")
+                                message_lines.append(f"• {description}")
+                                message_lines.append(f"• {bet['league']} | {bookmaker}")
+                                message_lines.append(f"• {bet['time_left']}")
                                 message_lines.append("")  # Empty line between bets
                             
-                            message_lines.append(f"Check: {driver.current_url}")
+                            message_lines.append(f"🔗 Check RebelBetting")
                             
                             detailed_message = "\n".join(message_lines)
                             
