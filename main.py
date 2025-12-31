@@ -8,7 +8,7 @@ import undetected_chromedriver as uc
 import requests
 import smtplib
 from email.mime.text import MIMEText
-from pushbullet import Pushbullet
+# from pushbullet import Pushbullet  # Temporarily disabled - causes freeze
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -87,16 +87,9 @@ class NotificationService:
         self.email_to = os.getenv("EMAIL_TO", self.email_user)
         
     def send_pushbullet(self, title, message):
-        if not self.pushbullet_token:
-            return False
-        try:
-            pb = Pushbullet(self.pushbullet_token)
-            pb.push_note(title, message)
-            print(f"Pushbullet notification sent: {title}")
-            return True
-        except Exception as e:
-            print(f"Pushbullet error: {e}")
-            return False
+        # Temporarily disabled - pushbullet causes freeze on Windows
+        print(f"Pushbullet disabled: {title} - {message}")
+        return False
     
     def send_telegram(self, message):
         if not self.telegram_bot_token or not self.telegram_chat_id:
@@ -176,26 +169,22 @@ def start_driver():
     
     options = uc.ChromeOptions()
     
-    # Essential Docker Chrome arguments
-    options.add_argument("--headless=new")
+    # Disable headless mode - using virtual display instead
+    # options.add_argument("--headless=new")
+    
+    # Essential Chrome arguments for virtual display
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--disable-software-rasterizer")
-    options.add_argument("--disable-background-timer-throttling")
-    options.add_argument("--disable-backgrounding-occluded-windows")
-    options.add_argument("--disable-renderer-backgrounding")
-    options.add_argument("--disable-features=TranslateUI")
-    options.add_argument("--disable-ipc-flooding-protection")
-    options.add_argument("--no-first-run")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--disable-popup-blocking")
     options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--disable-popup-blocking")
     
-    # Memory and performance optimizations for containers
-    options.add_argument("--memory-pressure-off")
-    options.add_argument("--max_old_space_size=4096")
+    # Virtual display optimizations
+    options.add_argument("--no-first-run")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-extensions")
     
     options.add_experimental_option("prefs", {
         "profile.default_content_setting_values.popups": 1
@@ -208,22 +197,9 @@ def start_driver():
         import sys
         sys.stdout.flush()  # Force flush before potentially blocking operation
         
-        # Add timeout mechanism
-        import signal
-        
-        def timeout_handler(signum, frame):
-            raise TimeoutError("Chrome initialization timed out after 120 seconds")
-        
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(120)  # 2 minute timeout
-        
-        try:
-            driver = uc.Chrome(options=options)
-            signal.alarm(0)  # Cancel timeout
-            print("✅ Chrome driver initialized successfully")
-        except TimeoutError:
-            print("❌ Chrome initialization timed out - this usually indicates Chrome can't start in container")
-            raise
+        # Windows doesn't support SIGALRM, so skip timeout for now
+        driver = uc.Chrome(options=options)
+        print("✅ Chrome driver initialized successfully")
         
         driver.implicitly_wait(IMPLICIT_WAIT)
         
@@ -436,7 +412,8 @@ def automated_login(driver, username, password):
                         question_elements = driver.find_elements(By.CSS_SELECTOR, selector)
                         for element in question_elements:
                             text = element.text.strip()
-                            if text and any(op in text for op in ['+', '-', '*', '×', '=']):
+                            # Look for math patterns in the text
+                            if text and any(op in text for op in ['+', '-', '*', '×', '=', 'What is', 'Calculate']):
                                 math_question = text
                                 print(f"✅ Found math question: {math_question}")
                                 break
@@ -445,14 +422,18 @@ def automated_login(driver, username, password):
                     except:
                         continue
                 
-                # If no specific question found, look around the input
+                # If no specific question found, look around the input and check page source
                 if not math_question:
                     try:
-                        parent = math_input.find_element(By.XPATH, "..")
-                        parent_text = parent.text.strip()
-                        if any(op in parent_text for op in ['+', '-', '*', '×', '=']):
-                            math_question = parent_text
-                            print(f"🔍 Found question in parent: {math_question}")
+                        # Check the entire page for math patterns
+                        page_text = driver.find_element(By.TAG_NAME, "body").text
+                        lines = page_text.split('\n')
+                        for line in lines:
+                            if any(op in line for op in ['+', '-', '*', '×']) and any(char.isdigit() for char in line):
+                                if 'What is' in line or any(op + ' ' in line for op in ['+', '-', '*', '×']):
+                                    math_question = line.strip()
+                                    print(f"🔍 Found math question in page: {math_question}")
+                                    break
                     except:
                         pass
                 

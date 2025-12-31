@@ -1,7 +1,7 @@
 # Use Python slim image with Chrome support
 FROM python:3.11-slim
 
-# Install system dependencies for Chrome
+# Install system dependencies for Chrome and virtual display
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -29,11 +29,11 @@ COPY . .
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Set display for headless Chrome
+# Set display for virtual display
 ENV DISPLAY=:99
 
 # Force Python to flush output immediately (fix log buffering)
 ENV PYTHONUNBUFFERED=1
 
-# Run the application
-CMD ["python", "-u", "main.py"]
+# Start virtual display and run the application
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 & python -u main.py"]
