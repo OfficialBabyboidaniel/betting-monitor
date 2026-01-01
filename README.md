@@ -22,7 +22,7 @@ git clone https://github.com/OfficialBabyboidaniel/betting-monitor.git
 cd betting-monitor
 ```
 
-### 2. Setup Notifications (2 minutes)
+### 2. Setup Notifications (2 minutes
 **Telegram (Recommended - 100% Free):**
 1. Install Telegram Messenger on your phone
 2. Message `@BotFather` → send `/newbot` → follow prompts
@@ -78,7 +78,7 @@ docker-compose down
 
 The monitor automatically:
 - Logs into your RebelBetting account
-- Scans for value bets every 60 seconds
+- Scans for value bets every 10 minutes
 - Closes popup windows automatically
 - Sends notifications when bets are detected
 - Restarts if it encounters errors
