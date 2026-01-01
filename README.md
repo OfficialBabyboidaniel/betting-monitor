@@ -6,7 +6,7 @@ Never miss a profitable betting opportunity again! This Docker-containerized mon
 
 ## ✨ Features
 
-- 🔄 **24/7 Automated Monitoring** - Continuously checks for value bets every 60 seconds
+- 🔄 **24/7 Automated Monitoring** - Continuously checks for value bets every 10 minutes
 - 📱 **Instant Phone Notifications** - Get alerted immediately via Telegram, Pushbullet, Discord, or Email
 - 🐳 **Docker Containerized** - Easy deployment and management on any server
 - 🛡️ **Undetected Chrome** - Uses stealth browser to avoid bot detection
